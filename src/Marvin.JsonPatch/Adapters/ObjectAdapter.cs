@@ -507,7 +507,23 @@ namespace Marvin.JsonPatch.Adapters
         /// <param name="objectApplyTo">Object to apply the operation to</param>
         public void Test(Operation<T> operation, T objectToApplyTo)
         {
-            throw new NotImplementedException("Test is currently not implemented");
+            var result = GetValueAtLocation(operation.path, objectToApplyTo, operation);
+            object valToTest = operation.value;
+            if (result.PropertyValue != null)
+            {
+                // we have something. Lets see if it is a primitive
+                Type retrievedType = result.PropertyValue.GetType();
+                if (retrievedType.IsValueType)
+                {
+                    valToTest = Convert.ChangeType(valToTest, retrievedType);
+                }
+            }
+            if (!object.Equals(valToTest, result.PropertyValue))
+            {
+                throw new Exception();
+            }
+                
+            
         }
         
         /// <summary>

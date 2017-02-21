@@ -33,6 +33,7 @@ namespace Marvin.JsonPatch
         /// </summary>
         public JsonPatchDocument()
         {
+            
             Operations = new List<Operation<T>>();
             ContractResolver = new DefaultContractResolver();
         }

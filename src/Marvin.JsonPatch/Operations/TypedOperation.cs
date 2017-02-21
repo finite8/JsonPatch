@@ -45,7 +45,9 @@ namespace Marvin.JsonPatch.Operations
                     adapter.Copy(this, objectToApplyTo);
                     break;
                 case OperationType.Test:
-                    throw new NotImplementedException("Test is currently not implemented.");   
+                    adapter.Test(this, objectToApplyTo);
+                    break;
+                    //throw new NotImplementedException("Test is currently not implemented.");   
                 default:
                     break;
             }
