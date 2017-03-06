@@ -387,6 +387,8 @@ namespace Marvin.JsonPatch
             ApplyTo(objectToApplyTo, new ObjectAdapter<T>(ContractResolver));
         }
 
+
+
         /// <summary>
         /// Apply the patch document, passing in a custom IObjectAdapter<typeparamref name=">"/>. 
         /// This method will change the passed-in object.
@@ -401,6 +403,8 @@ namespace Marvin.JsonPatch
                 op.Apply(objectToApplyTo, adapter);
             }
         }
+
+        
 
         IList<Operation> IJsonPatchDocument.GetOperations()
         {
@@ -423,4 +427,6 @@ namespace Marvin.JsonPatch
             return allOps;
         } 
     }
+
+    public delegate object CustomObjectDeserializeHandler(string jsonData, Type targetType);
 }

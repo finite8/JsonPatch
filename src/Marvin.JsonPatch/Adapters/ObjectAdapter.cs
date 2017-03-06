@@ -6,6 +6,7 @@
 using Marvin.JsonPatch.Exceptions;
 using Marvin.JsonPatch.Helpers;
 using Marvin.JsonPatch.Operations;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections;
@@ -15,6 +16,8 @@ namespace Marvin.JsonPatch.Adapters
 {
     public class ObjectAdapter<T> : IObjectAdapter<T> where T : class
     {
+        public CustomObjectDeserializeHandler CustomDeserializationHandler { get; set; }
+
         public IContractResolver ContractResolver { get; private set; }
 
         /// <summary>
@@ -212,9 +215,27 @@ namespace Marvin.JsonPatch.Adapters
             }
             else
             {
-                var conversionResultTuple = PropertyHelpers.ConvertToActualType(
-                    patchProperty.Property.PropertyType,
-                    value);
+                Type propType = patchProperty.Property.PropertyType;
+                ConversionResult conversionResultTuple;
+                if (!propType.IsValueType && propType != typeof(string) && value != null && value.GetType() == typeof(string))
+                {
+                    object newObj;
+                    if (CustomDeserializationHandler != null)
+                    {
+                        newObj = CustomDeserializationHandler(value.ToString(), propType);
+                    }
+                    else
+                    {
+                        newObj = JsonConvert.DeserializeObject(value.ToString(), propType);
+                    }
+                    conversionResultTuple = new ConversionResult(true, newObj);
+                }
+                else
+                {
+                    conversionResultTuple = PropertyHelpers.ConvertToActualType(
+                        patchProperty.Property.PropertyType,
+                        value);
+                }
 
                 if (conversionResultTuple.CanBeConverted)
                 {
