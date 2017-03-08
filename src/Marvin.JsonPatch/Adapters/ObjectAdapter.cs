@@ -203,6 +203,52 @@ namespace Marvin.JsonPatch.Adapters
                             422);
                     }
                 }
+                else if (PropertyHelpers.IsNonStringCollection(patchProperty.Property.PropertyType))
+                {
+                    // we need to do a little work with collections here. All generic collections have an "Add" operation. In this case, we should ONLY
+                    // support adding to the end.
+                    if (!(positionAsInteger == -1 || appendList))
+                    {
+                        throw new JsonPatchException(
+                                    new JsonPatchError(
+                                      objectToApplyTo,
+                                      operationToReport,
+                                      string.Format("Patch failed: provided path is invalid for array property type at location path: {0}: can only insert at end of array when target type is ICollection", path)),
+                                    422);
+                    }
+                    var genericTypeOfCollection = PropertyHelpers.GetEnumerableType(patchProperty.Property.PropertyType);
+                    var conversionResult = PropertyHelpers.ConvertToActualType(genericTypeOfCollection, value);
+                    if (!conversionResult.CanBeConverted)
+                    {
+                        throw new JsonPatchException(
+                          new JsonPatchError(
+                              objectToApplyTo,
+                              operationToReport,
+                              string.Format("Patch failed: provided value is invalid for array property type at location path: {0}", path)),
+                          422);
+                    }
+                    if (patchProperty.Property.Readable)
+                    {
+                        var array = (ICollection)patchProperty.Property.ValueProvider
+                            .GetValue(patchProperty.Parent);
+                        var addMethod = patchProperty.Property.PropertyType.GetMethod("Add");
+
+                        addMethod.Invoke(array, new object[] {conversionResult.ConvertedInstance});
+                       
+                    }
+                    else
+                    {
+                        // cannot read the property
+                        throw new JsonPatchException(
+                            new JsonPatchError(
+                              objectToApplyTo,
+                              operationToReport,
+                              string.Format("Patch failed: cannot get property value at path {0}.  Possible cause: the property doesn't have an accessible getter.", path)),
+                            422);
+                    }
+
+
+                }
                 else
                 {
                     throw new JsonPatchException(

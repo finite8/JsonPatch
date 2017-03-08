@@ -262,6 +262,14 @@ namespace Marvin.JsonPatch.Helpers
             return isNonString && (isList || isGenericList);
         }
 
+        internal static bool IsNonStringCollection(this Type propertyType)
+        {
+            var isNonString = propertyType != typeof(string);
+            var isCollection = typeof(ICollection).IsAssignableFrom(propertyType);
+            var isGenericCollection = propertyType.ImplementsGeneric(typeof(ICollection<>));
+            return isNonString && (isCollection || isGenericCollection);
+        }
+
         internal static bool ImplementsGeneric(this Type propertyType, Type genericInterfaceDefinition)
         {
             if (genericInterfaceDefinition == null)
