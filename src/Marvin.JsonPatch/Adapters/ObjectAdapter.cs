@@ -17,6 +17,19 @@ namespace Marvin.JsonPatch.Adapters
     public class ObjectAdapter<T> : IObjectAdapter<T> where T : class
     {
         public CustomObjectDeserializeHandler CustomDeserializationHandler { get; set; }
+        public event BeforeSetValueHandler BeforeSetValue;
+
+        protected void InvokeWithBeforeSetValue(SetValueEventArgs eArg, Action action)
+        {
+            if (BeforeSetValue != null)
+            {
+                BeforeSetValue(this, eArg);
+            }
+            if (!eArg.Cancel)
+            {
+                action.Invoke();
+            }
+        }
 
         public IContractResolver ContractResolver { get; private set; }
 
@@ -171,7 +184,15 @@ namespace Marvin.JsonPatch.Adapters
 
                         if (appendList)
                         {
-                            array.Add(conversionResult.ConvertedInstance);
+                            SetValueEventArgs eArg = new SetValueEventArgs(operationToReport)
+                            {
+                                Cancel = false,
+                                Index = array.Count + 1,
+                                NewValue = conversionResult.ConvertedInstance,
+                                ParentObject = patchProperty.Parent,
+                                Property = patchProperty.Property
+                            };
+                            InvokeWithBeforeSetValue(eArg, () => array.Add(eArg.NewValue));
                         }
                         else
                         {
@@ -179,7 +200,15 @@ namespace Marvin.JsonPatch.Adapters
                             // array
                             if (positionAsInteger <= array.Count)
                             {
-                                array.Insert(positionAsInteger, conversionResult.ConvertedInstance);
+                                SetValueEventArgs eArg = new SetValueEventArgs(operationToReport)
+                                {
+                                    Cancel = false,
+                                    Index = positionAsInteger,
+                                    NewValue = conversionResult.ConvertedInstance,
+                                    ParentObject = patchProperty.Parent,
+                                    Property = patchProperty.Property
+                                };
+                                InvokeWithBeforeSetValue(eArg, () => array.Insert(positionAsInteger, eArg.NewValue));
                             }
                             else
                             {
@@ -232,8 +261,15 @@ namespace Marvin.JsonPatch.Adapters
                         var array = (ICollection)patchProperty.Property.ValueProvider
                             .GetValue(patchProperty.Parent);
                         var addMethod = patchProperty.Property.PropertyType.GetMethod("Add");
-
-                        addMethod.Invoke(array, new object[] {conversionResult.ConvertedInstance});
+                        SetValueEventArgs eArg = new SetValueEventArgs(operationToReport)
+                        {
+                            Cancel = false,
+                            Index = -1,
+                            NewValue = conversionResult.ConvertedInstance,
+                            ParentObject = patchProperty.Parent,
+                            Property = patchProperty.Property
+                        };
+                        InvokeWithBeforeSetValue(eArg, () => addMethod.Invoke(array, new object[] { eArg.NewValue }));
                        
                     }
                     else
@@ -276,6 +312,10 @@ namespace Marvin.JsonPatch.Adapters
                     }
                     conversionResultTuple = new ConversionResult(true, newObj);
                 }
+                else if (value != null && patchProperty.Property.PropertyType.IsAssignableFrom(value.GetType()))
+                {
+                    conversionResultTuple = new ConversionResult(true, value);
+                }
                 else
                 {
                     conversionResultTuple = PropertyHelpers.ConvertToActualType(
@@ -287,9 +327,16 @@ namespace Marvin.JsonPatch.Adapters
                 {
                     if (patchProperty.Property.Writable)
                     {
-                        patchProperty.Property.ValueProvider.SetValue(
-                           patchProperty.Parent,
-                           conversionResultTuple.ConvertedInstance);
+                        SetValueEventArgs eArg = new SetValueEventArgs(operationToReport)
+                        {
+                            Cancel = false,
+                            NewValue = conversionResultTuple.ConvertedInstance,
+                            ParentObject = patchProperty.Parent,
+                            Property = patchProperty.Property
+                        };
+                        InvokeWithBeforeSetValue(eArg, () => patchProperty.Property.ValueProvider.SetValue(
+                           eArg.ParentObject,
+                           eArg.NewValue));
                     }
                     else
                     {
@@ -436,8 +483,15 @@ namespace Marvin.JsonPatch.Adapters
                                       string.Format("Patch failed: provided path is invalid for array property type at location path: {0}: position larger than array size", path)),
                                     422);
                             }
-
-                            array.RemoveAt(array.Count - 1);
+                            SetValueEventArgs eArg = new SetValueEventArgs(operationToReport)
+                            {
+                                Cancel = false,
+                                //NewValue = conversionResultTuple.ConvertedInstance,
+                                ParentObject = patchProperty.Parent,
+                                Property = patchProperty.Property,
+                                Index = array.Count - 1,
+                            };
+                            InvokeWithBeforeSetValue(eArg, () => array.RemoveAt(eArg.Index.Value));
 
                             // return the type of the value that has been removed
                             return new RemovedPropertyTypeResult(genericTypeOfArray, false);
@@ -453,8 +507,15 @@ namespace Marvin.JsonPatch.Adapters
                                           string.Format("Patch failed: provided path is invalid for array property type at location path: {0}: position larger than array size", path)),
                                         422);
                             }
-
-                            array.RemoveAt(positionAsInteger);
+                            SetValueEventArgs eArg = new SetValueEventArgs(operationToReport)
+                            {
+                                Cancel = false,
+                                //NewValue = conversionResultTuple.ConvertedInstance,
+                                ParentObject = patchProperty.Parent,
+                                Property = patchProperty.Property,
+                                Index = positionAsInteger
+                            };
+                            InvokeWithBeforeSetValue(eArg, () => array.RemoveAt(eArg.Index.Value));
 
                             // return the type of the value that has been removed
                             return new RemovedPropertyTypeResult(genericTypeOfArray, false);
@@ -505,19 +566,31 @@ namespace Marvin.JsonPatch.Adapters
                 var conversionResultTuple = PropertyHelpers.ConvertToActualType(
                    patchProperty.Property.PropertyType,
                    value);
-
+                SetValueEventArgs eArg = new SetValueEventArgs(operationToReport)
+                {
+                    Cancel = false,
+                    //NewValue = conversionResultTuple.ConvertedInstance,
+                    ParentObject = patchProperty.Parent,
+                    Property = patchProperty.Property
+                };
+                
                 if (!conversionResultTuple.CanBeConverted)
                 {
                     // conversion failed, so use reflection (somewhat slower) to 
                     // create a new default instance of the property type to set as value
-                    patchProperty.Property.ValueProvider.SetValue(patchProperty.Parent,
-                        Activator.CreateInstance(patchProperty.Property.PropertyType)); 
-                            
-                    return new RemovedPropertyTypeResult(patchProperty.Property.PropertyType, false);
-                }
 
-                patchProperty.Property.ValueProvider.SetValue(patchProperty.Parent,
-                    conversionResultTuple.ConvertedInstance);
+                    eArg.NewValue = Activator.CreateInstance(patchProperty.Property.PropertyType);
+                    //patchProperty.Property.ValueProvider.SetValue(patchProperty.Parent,
+                    //    Activator.CreateInstance(patchProperty.Property.PropertyType)); 
+                            
+                    //return new RemovedPropertyTypeResult(patchProperty.Property.PropertyType, false);
+                }
+                else
+                {
+                    eArg.NewValue = conversionResultTuple.ConvertedInstance;
+                }
+                InvokeWithBeforeSetValue(eArg, () => patchProperty.Property.ValueProvider.SetValue(eArg.ParentObject,
+                    eArg.NewValue));
 
                 return new RemovedPropertyTypeResult(patchProperty.Property.PropertyType, false);
             }
@@ -629,8 +702,26 @@ namespace Marvin.JsonPatch.Adapters
                      string.Format("Patch failed: could not determine type of property at location {0}", operation.path)),
                    422);
             }
-
-            var conversionResult = PropertyHelpers.ConvertToActualType(removeResult.ActualType, operation.value);
+            ConversionResult conversionResult;
+            var propType = removeResult.ActualType;
+            var value = operation.value;
+            if (!propType.IsValueType && propType != typeof(string) && value != null && value.GetType() == typeof(string))
+            {
+                object newObj;
+                if (CustomDeserializationHandler != null)
+                {
+                    newObj = CustomDeserializationHandler(value.ToString(), propType);
+                }
+                else
+                {
+                    newObj = JsonConvert.DeserializeObject(value.ToString(), propType);
+                }
+                conversionResult = new ConversionResult(true, newObj);
+            }
+            else
+            {
+                conversionResult = PropertyHelpers.ConvertToActualType(removeResult.ActualType, operation.value);
+            }
 
             if (!conversionResult.CanBeConverted)
             {

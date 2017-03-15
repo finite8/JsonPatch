@@ -12,6 +12,7 @@ using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Reflection;
 
 // Implementation details: the purpose of this type of patch document is to ensure we can do type-checking
 // when producing a JsonPatchDocument.  However, we cannot send this "typed" over the wire, as that would require
@@ -429,4 +430,19 @@ namespace Marvin.JsonPatch
     }
 
     public delegate object CustomObjectDeserializeHandler(string jsonData, Type targetType);
+    public delegate void BeforeSetValueHandler(object sender, SetValueEventArgs e);
+
+    public class SetValueEventArgs
+    {
+        internal SetValueEventArgs(Operation op)
+        {
+            this.Op = op;
+        }
+        public bool Cancel { get; set; }
+        public object ParentObject { get; set; }
+        public JsonProperty Property { get; set; }
+        public object NewValue { get; set; }
+        public int? Index { get; set; }
+        public Operation Op { get; internal set; }
+    }
 }
