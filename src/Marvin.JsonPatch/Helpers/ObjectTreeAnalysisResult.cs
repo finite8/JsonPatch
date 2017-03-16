@@ -62,7 +62,7 @@ namespace Marvin.JsonPatch.Helpers
                     // we are going to try a bit of bullshittery here.
                     // i would use something like dynamic linq, but this is a portable library. When i have time, i will split this out. Until then:
                     string exprString = propertyPathTree[i].Substring(1, propertyPathTree[i].Length - 2);
-                    var element = GetElementAtFromObjectExpression(targetObject, exprString);
+                    var element = ExpressionHelpers.GetElementAtFromObjectExpression(targetObject, exprString);
                     if (element != null)
                     {
                         targetObject = element;
@@ -118,8 +118,27 @@ namespace Marvin.JsonPatch.Helpers
 
                 if (attemptedProperty == null)
                 {
-                    IsValidPathForAdd = false;
-                    IsValidPathForRemove = false;
+                    if (leftOverPath.Last().StartsWith("[") && leftOverPath.Last().EndsWith("]"))
+                    {
+                        attemptedProperty = jsonContract.Properties.FirstOrDefault(p => string.Equals(p.PropertyName, propertyPathTree[lastPosition - 1], StringComparison.OrdinalIgnoreCase));
+                        if (attemptedProperty != null)
+                        {
+                            IsValidPathForAdd = false;
+                            IsValidPathForRemove = true;
+                            JsonPatchProperty = new Helpers.JsonPatchProperty(attemptedProperty, targetObject);
+                            PropertyPathInParent = leftOverPath.Last();
+                        }
+                        else
+                        {
+                            IsValidPathForAdd = false;
+                            IsValidPathForRemove = false;
+                        }
+                    }
+                    else
+                    {
+                        IsValidPathForAdd = false;
+                        IsValidPathForRemove = false;
+                    }
                 }
                 else
                 {
@@ -157,39 +176,6 @@ namespace Marvin.JsonPatch.Helpers
             else { return null; }
         }
 
-        private object GetElementAtFromObjectExpression(object targetObject, string expressionString)
-        {
-            Type listType = targetObject.GetType();
-            Type elementType = listType.GetCollectionType();
-
-
-            string[] parts = expressionString.Split(new char[] { '=' });
-            var param = Expression.Parameter(elementType);
-            var left = Expression.Property(param, parts[0]);
-            var compType = left.Type;
-            var right = Expression.Constant(Convert.ChangeType(parts[1], compType));
-            var eq = Expression.Equal(left, right);
-            var expr = Expression.Lambda(eq, param);
-            var func = expr.Compile();
-
-            
-            // Check if the targetobject is an IEnumerable,
-            // and if the position is valid.
-            if (targetObject is IEnumerable)
-            {
-                var indexable = ((IEnumerable)targetObject);
-                foreach (object o in indexable)
-                {
-                    object result = func.DynamicInvoke(o);
-                    if (result is bool &&  (bool)result == true)
-                    {
-                        return o;
-                    }
-                }
-                return null; 
-            }
-            else { return null; ; }
-            
-        }
+        
     }
 }

@@ -13,6 +13,7 @@ namespace Marvin.JsonPatch.Helpers
     internal class ActualPropertyPathResult
     {
         public int NumericEnd { get; private set; }
+        public string ExpressionEnd { get; private set; }
         public string PathToProperty { get; set; }
         public bool ExecuteAtEnd { get; set; }
 
@@ -22,6 +23,16 @@ namespace Marvin.JsonPatch.Helpers
             bool executeAtEnd)
         {
             NumericEnd = numericEnd;
+            PathToProperty = pathToProperty;
+            ExecuteAtEnd = executeAtEnd;
+        }
+
+        public ActualPropertyPathResult(
+            string expressionEnd,
+            string pathToProperty,
+            bool executeAtEnd)
+        {
+            ExpressionEnd = expressionEnd;
             PathToProperty = pathToProperty;
             ExecuteAtEnd = executeAtEnd;
         }

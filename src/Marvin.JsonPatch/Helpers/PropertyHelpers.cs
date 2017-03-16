@@ -250,8 +250,21 @@ namespace Marvin.JsonPatch.Helpers
                               message), 422);
                     }
                 }
+                else if (IsExpression(possibleIndex))
+                {
+                    var pathToProperty = propertyPath.Substring(
+                           0,
+                           propertyPath.LastIndexOf('/' + possibleIndex));
+
+                    return new ActualPropertyPathResult(possibleIndex.Substring(1, possibleIndex.Length - 2), pathToProperty, false);
+                }
                 return new ActualPropertyPathResult(-1, propertyPath, false);
             }
+        }
+
+        internal static bool IsExpression(string part)
+        {
+            return part.StartsWith("[") && part.EndsWith("]");
         }
 
         internal static bool IsNonStringList(this Type propertyType)

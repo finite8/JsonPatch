@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace Marvin.JsonPatch.Adapters
@@ -443,7 +444,7 @@ namespace Marvin.JsonPatch.Adapters
             var removeFromList = pathResult.ExecuteAtEnd;
             var positionAsInteger = pathResult.NumericEnd;
             var actualPathToProperty = pathResult.PathToProperty;
-
+            var expressionToUse = pathResult.ExpressionEnd;
             var result = new ObjectTreeAnalysisResult(objectToApplyTo, actualPathToProperty, 
                 ContractResolver);
 
@@ -461,7 +462,22 @@ namespace Marvin.JsonPatch.Adapters
 
             if (removeFromList || positionAsInteger > -1)
             {
-                if (PropertyHelpers.IsNonStringList(patchProperty.Property.PropertyType))
+                if (expressionToUse != null)
+                {
+                    // we have an expression. 
+                    var elementType = PropertyHelpers.GetCollectionType(patchProperty.Property.PropertyType);
+                    ICollection coll = (ICollection)patchProperty.Property.ValueProvider
+                               .GetValue(patchProperty.Parent);
+                    var remMethod = typeof(ICollection<>).MakeGenericType(elementType).GetMethod("Remove");
+                    var objToRemove = ExpressionHelpers.GetElementAtFromObjectExpression(coll, expressionToUse);
+                    var remResult = remMethod.Invoke(coll, new object[] { objToRemove });
+                    if ((bool)remResult != true)
+                    {
+                        throw new Exception("D'oh");
+                    }
+                    return new RemovedPropertyTypeResult(elementType, false);
+                }
+                else if (PropertyHelpers.IsNonStringList(patchProperty.Property.PropertyType))
                 {
                     // now, get the generic type of the enumerable
                     var genericTypeOfArray = PropertyHelpers.GetEnumerableType(patchProperty.Property.PropertyType);

@@ -5,6 +5,7 @@
 
 using Newtonsoft.Json;
 using System;
+using System.Collections;
 using System.Globalization;
 using System.Linq.Expressions;
 
@@ -141,6 +142,41 @@ namespace Marvin.JsonPatch.Helpers
             func = lambda.Compile();
 
             return Convert.ToString(func(null), CultureInfo.InvariantCulture);
+        }
+
+        public static object GetElementAtFromObjectExpression(object targetObject, string expressionString)
+        {
+            Type listType = targetObject.GetType();
+            Type elementType = listType.GetCollectionType();
+
+
+            string[] parts = expressionString.Split(new char[] { '=' });
+            var param = Expression.Parameter(elementType);
+            var left = Expression.Property(param, parts[0]);
+            var compType = left.Type;
+            var right = Expression.Constant(Convert.ChangeType(parts[1], compType));
+            var eq = Expression.Equal(left, right);
+            var expr = Expression.Lambda(eq, param);
+            var func = expr.Compile();
+
+
+            // Check if the targetobject is an IEnumerable,
+            // and if the position is valid.
+            if (targetObject is IEnumerable)
+            {
+                var indexable = ((IEnumerable)targetObject);
+                foreach (object o in indexable)
+                {
+                    object result = func.DynamicInvoke(o);
+                    if (result is bool && (bool)result == true)
+                    {
+                        return o;
+                    }
+                }
+                return null;
+            }
+            else { return null; ; }
+
         }
     }
 }
