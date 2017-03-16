@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 
 namespace Marvin.JsonPatch.Helpers
@@ -55,6 +56,24 @@ namespace Marvin.JsonPatch.Helpers
                     {
                         break;
                     }
+                }
+                else if (propertyPathTree[i].StartsWith("[") && propertyPathTree[i].EndsWith("]"))
+                {
+                    // we are going to try a bit of bullshittery here.
+                    // i would use something like dynamic linq, but this is a portable library. When i have time, i will split this out. Until then:
+                    string exprString = propertyPathTree[i].Substring(1, propertyPathTree[i].Length - 2);
+                    var element = GetElementAtFromObjectExpression(targetObject, exprString);
+                    if (element != null)
+                    {
+                        targetObject = element;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                    
+                    
+
                 }
                 else
                 {
@@ -136,6 +155,41 @@ namespace Marvin.JsonPatch.Helpers
                 else { return null; ; }
             }
             else { return null; }
+        }
+
+        private object GetElementAtFromObjectExpression(object targetObject, string expressionString)
+        {
+            Type listType = targetObject.GetType();
+            Type elementType = listType.GetCollectionType();
+
+
+            string[] parts = expressionString.Split(new char[] { '=' });
+            var param = Expression.Parameter(elementType);
+            var left = Expression.Property(param, parts[0]);
+            var compType = left.Type;
+            var right = Expression.Constant(Convert.ChangeType(parts[1], compType));
+            var eq = Expression.Equal(left, right);
+            var expr = Expression.Lambda(eq, param);
+            var func = expr.Compile();
+
+            
+            // Check if the targetobject is an IEnumerable,
+            // and if the position is valid.
+            if (targetObject is IEnumerable)
+            {
+                var indexable = ((IEnumerable)targetObject);
+                foreach (object o in indexable)
+                {
+                    object result = func.DynamicInvoke(o);
+                    if (result is bool &&  (bool)result == true)
+                    {
+                        return o;
+                    }
+                }
+                return null; 
+            }
+            else { return null; ; }
+            
         }
     }
 }
