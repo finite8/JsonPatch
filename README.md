@@ -1,6 +1,15 @@
 JSON Patch for .NET (Web API / clients)
 =======================================
 
+This is a modified version of KevinDockx/JsonPatch. This fork has added several potentially non-compliant features:
+- Better handling of Deserialization
+- Ability to intercept the deserialization process, allowing for the provision of custom objects instead of the Serialized one (useful in the case of EF objects)
+- Support for a very simple [Property]=[Value] expression in arrays. This allows for supporting the use of ICollections. Example: /Foo/Bars/[Id=5]
+
+
+
+
+
 JSON Patch (JsonPatchDocument) RFC 6902 implementation for .NET to easily allow & apply partial REST-ful service (through Web API) updates from any client (portable class library).  
 
 NuGet package: https://www.nuget.org/packages/Marvin.JsonPatch
