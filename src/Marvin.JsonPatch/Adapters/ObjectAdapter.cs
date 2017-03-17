@@ -466,7 +466,7 @@ namespace Marvin.JsonPatch.Adapters
                 {
                     // we have an expression. 
                     var elementType = PropertyHelpers.GetCollectionType(patchProperty.Property.PropertyType);
-                    ICollection coll = (ICollection)patchProperty.Property.ValueProvider
+                    object coll = patchProperty.Property.ValueProvider
                                .GetValue(patchProperty.Parent);
                     var remMethod = typeof(ICollection<>).MakeGenericType(elementType).GetMethod("Remove");
                     var objToRemove = ExpressionHelpers.GetElementAtFromObjectExpression(coll, expressionToUse);
