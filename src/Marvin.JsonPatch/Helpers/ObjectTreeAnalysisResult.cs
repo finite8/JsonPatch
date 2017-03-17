@@ -93,6 +93,10 @@ namespace Marvin.JsonPatch.Helpers
                         if (!(i == propertyPathTree.Count - 1))
                         {
                             targetObject = attemptedProperty.ValueProvider.GetValue(targetObject);
+                            if (targetObject == null)
+                            {
+                                throw new Exception($"Attempted to walk path '/{string.Join("/", propertyPathTree.GetRange(0, i + 1))}' on given '{objectToSearch.GetType().Name}' but encountered null");
+                            }
                         }
                     }
                     else
