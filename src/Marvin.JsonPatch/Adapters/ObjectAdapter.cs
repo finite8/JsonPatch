@@ -247,7 +247,32 @@ namespace Marvin.JsonPatch.Adapters
                                     422);
                     }
                     var genericTypeOfCollection = PropertyHelpers.GetEnumerableType(patchProperty.Property.PropertyType);
-                    var conversionResult = PropertyHelpers.ConvertToActualType(genericTypeOfCollection, value);
+                    ConversionResult conversionResult;// = PropertyHelpers.ConvertToActualType(genericTypeOfCollection, value);
+
+                    if (!genericTypeOfCollection.IsValueType && genericTypeOfCollection != typeof(string) && value != null && value.GetType() == typeof(string))
+                    {
+                        object newObj;
+                        if (CustomDeserializationHandler != null)
+                        {
+                            newObj = CustomDeserializationHandler(value.ToString(), genericTypeOfCollection);
+                        }
+                        else
+                        {
+                            newObj = JsonConvert.DeserializeObject(value.ToString(), genericTypeOfCollection);
+                        }
+                        conversionResult = new ConversionResult(true, newObj);
+                    }
+                    else if (value != null && genericTypeOfCollection.IsAssignableFrom(value.GetType()))
+                    {
+                        conversionResult = new ConversionResult(true, value);
+                    }
+                    else
+                    {
+                        conversionResult = PropertyHelpers.ConvertToActualType(
+                            genericTypeOfCollection,
+                            value);
+                    }
+
                     if (!conversionResult.CanBeConverted)
                     {
                         throw new JsonPatchException(
@@ -259,7 +284,7 @@ namespace Marvin.JsonPatch.Adapters
                     }
                     if (patchProperty.Property.Readable)
                     {
-                        var array = (ICollection)patchProperty.Property.ValueProvider
+                        var array = patchProperty.Property.ValueProvider
                             .GetValue(patchProperty.Parent);
                         var addMethod = patchProperty.Property.PropertyType.GetMethod("Add");
                         SetValueEventArgs eArg = new SetValueEventArgs(operationToReport)
@@ -587,7 +612,9 @@ namespace Marvin.JsonPatch.Adapters
                     Cancel = false,
                     //NewValue = conversionResultTuple.ConvertedInstance,
                     ParentObject = patchProperty.Parent,
-                    Property = patchProperty.Property
+                    Property = patchProperty.Property,
+                    IsRemoveStepOfReplace = operationToReport.OperationType == OperationType.Replace
+
                 };
                 
                 if (!conversionResultTuple.CanBeConverted)

@@ -444,5 +444,6 @@ namespace Marvin.JsonPatch
         public object NewValue { get; set; }
         public int? Index { get; set; }
         public Operation Op { get; internal set; }
+        public bool IsRemoveStepOfReplace { get; internal set; }
     }
 }
