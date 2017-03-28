@@ -11,6 +11,7 @@ using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Reflection;
 
 namespace Marvin.JsonPatch.Adapters
@@ -182,7 +183,11 @@ namespace Marvin.JsonPatch.Adapters
                     {
                         var array = (IList)patchProperty.Property.ValueProvider
                             .GetValue(patchProperty.Parent);
-
+                        if (array == null)
+                        {
+                            array = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(genericTypeOfArray));
+                            patchProperty.Property.ValueProvider.SetValue(patchProperty.Parent, array);
+                        }
                         if (appendList)
                         {
                             SetValueEventArgs eArg = new SetValueEventArgs(operationToReport)
@@ -286,6 +291,12 @@ namespace Marvin.JsonPatch.Adapters
                     {
                         var array = patchProperty.Property.ValueProvider
                             .GetValue(patchProperty.Parent);
+                        if (array == null)
+                        {
+                            // the array was null. This might mean we are dealing with a fresh object. This is okay. Lets initialize it with a basic collection.
+                            array = Activator.CreateInstance(typeof(Collection<>).MakeGenericType(genericTypeOfCollection));
+                            patchProperty.Property.ValueProvider.SetValue(patchProperty.Parent, array);
+                        }
                         var addMethod = patchProperty.Property.PropertyType.GetMethod("Add");
                         SetValueEventArgs eArg = new SetValueEventArgs(operationToReport)
                         {
